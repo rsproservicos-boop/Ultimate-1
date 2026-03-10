@@ -68,9 +68,9 @@ const SummaryStep: React.FC<Props> = ({ formData, onBack }) => {
       await api.addSubmission(submission);
       setSubmitted(true);
       window.scrollTo({ top: 0, behavior: 'smooth' });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Falha ao finalizar agendamento:', error);
-      alert('Houve um erro técnico ao registrar seu agendamento. Por favor, tente novamente.');
+      alert(`Houve um erro ao registrar seu agendamento: ${error.message || 'Erro técnico desconhecido'}. Por favor, tente novamente.`);
     } finally {
       setIsSubmitting(false);
     }

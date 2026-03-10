@@ -121,43 +121,80 @@ export const api = {
 
   async addSubmission(data: Submission): Promise<void> {
     const settings = await this.getEffectiveSettings();
-    const local = localStorage.getItem(KEYS.SUBMISSIONS);
-    const submissions = local ? JSON.parse(local) : [];
-    submissions.unshift(data);
-    localStorage.setItem(KEYS.SUBMISSIONS, JSON.stringify(submissions));
-
+    
+    // Se estiver usando remoto, tenta salvar lá primeiro para garantir consistência
     if (settings.dbConfig?.useRemote) {
       try {
-        await fetch(`${settings.dbConfig.supabaseUrl}/rest/v1/submissions`, {
+        const response = await fetch(`${settings.dbConfig.supabaseUrl}/rest/v1/submissions`, {
           method: 'POST',
           headers: await this.getHeaders(),
           body: JSON.stringify(data)
         });
-      } catch (e) {}
+        
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(`Erro Supabase: ${response.status} - ${JSON.stringify(errorData)}`);
+        }
+      } catch (e) {
+        console.error('Falha na sincronização remota:', e);
+        throw e; // Lança para o componente tratar
+      }
+    }
+
+    // Salva localmente (como cache ou fallback)
+    try {
+      const local = localStorage.getItem(KEYS.SUBMISSIONS);
+      let submissions = [];
+      try {
+        submissions = local ? JSON.parse(local) : [];
+        if (!Array.isArray(submissions)) submissions = [];
+      } catch (parseError) {
+        submissions = [];
+      }
+      
+      // Evita duplicatas se já foi salvo (por exemplo, em uma tentativa anterior que falhou no remoto mas salvou local)
+      if (!submissions.some((s: any) => s.id === data.id)) {
+        submissions.unshift(data);
+        localStorage.setItem(KEYS.SUBMISSIONS, JSON.stringify(submissions));
+      }
+    } catch (e) {
+      console.error('Erro ao salvar no localStorage:', e);
     }
   },
 
   async updateSubmission(data: Submission): Promise<void> {
     const settings = await this.getEffectiveSettings();
-    const local = localStorage.getItem(KEYS.SUBMISSIONS);
-    if (local) {
-      const submissions = JSON.parse(local);
-      const index = submissions.findIndex((s: any) => s.id === data.id);
-      if (index !== -1) {
-        submissions[index] = data;
-        localStorage.setItem(KEYS.SUBMISSIONS, JSON.stringify(submissions));
+    
+    try {
+      const local = localStorage.getItem(KEYS.SUBMISSIONS);
+      if (local) {
+        const submissions = JSON.parse(local);
+        if (Array.isArray(submissions)) {
+          const index = submissions.findIndex((s: any) => s.id === data.id);
+          if (index !== -1) {
+            submissions[index] = data;
+            localStorage.setItem(KEYS.SUBMISSIONS, JSON.stringify(submissions));
+          }
+        }
       }
+    } catch (e) {
+      console.error('Erro ao atualizar localStorage:', e);
     }
 
     if (settings.dbConfig?.useRemote) {
       try {
-        await fetch(`${settings.dbConfig.supabaseUrl}/rest/v1/submissions?id=eq.${data.id}`, {
+        const response = await fetch(`${settings.dbConfig.supabaseUrl}/rest/v1/submissions?id=eq.${data.id}`, {
           method: 'PATCH',
           headers: await this.getHeaders(),
           body: JSON.stringify(data)
         });
+        
+        if (!response.ok) {
+          throw new Error(`Erro ao atualizar remotamente: ${response.status}`);
+        }
       } catch (e) {
         console.error('Erro ao atualizar remotamente:', e);
+        throw e;
       }
     }
   },
@@ -287,39 +324,57 @@ export const api = {
     const settings = await this.getEffectiveSettings();
     if (settings.dbConfig?.useRemote) {
       try {
-        await fetch(`${settings.dbConfig.supabaseUrl}/rest/v1/submissions?id=eq.${id}`, {
+        const response = await fetch(`${settings.dbConfig.supabaseUrl}/rest/v1/submissions?id=eq.${id}`, {
           method: 'PATCH',
           headers: await this.getHeaders(),
           body: JSON.stringify({ status })
         });
-      } catch (e) {}
-    }
-    const local = localStorage.getItem(KEYS.SUBMISSIONS);
-    if (local) {
-      const submissions = JSON.parse(local);
-      const index = submissions.findIndex((s: any) => s.id === id);
-      if (index !== -1) {
-        submissions[index].status = status;
-        localStorage.setItem(KEYS.SUBMISSIONS, JSON.stringify(submissions));
+        if (!response.ok) throw new Error(`Erro status: ${response.status}`);
+      } catch (e) {
+        console.error('Erro ao atualizar status remotamente:', e);
+        throw e;
       }
     }
+    
+    try {
+      const local = localStorage.getItem(KEYS.SUBMISSIONS);
+      if (local) {
+        const submissions = JSON.parse(local);
+        if (Array.isArray(submissions)) {
+          const index = submissions.findIndex((s: any) => s.id === id);
+          if (index !== -1) {
+            submissions[index].status = status;
+            localStorage.setItem(KEYS.SUBMISSIONS, JSON.stringify(submissions));
+          }
+        }
+      }
+    } catch (e) {}
   },
 
   async deleteSubmission(id: string): Promise<void> {
     const settings = await this.getEffectiveSettings();
     if (settings.dbConfig?.useRemote) {
       try {
-        await fetch(`${settings.dbConfig.supabaseUrl}/rest/v1/submissions?id=eq.${id}`, {
+        const response = await fetch(`${settings.dbConfig.supabaseUrl}/rest/v1/submissions?id=eq.${id}`, {
           method: 'DELETE',
           headers: await this.getHeaders()
         });
-      } catch (e) {}
+        if (!response.ok) throw new Error(`Erro ao deletar remotamente: ${response.status}`);
+      } catch (e) {
+        console.error('Erro ao deletar remotamente:', e);
+        throw e;
+      }
     }
-    const local = localStorage.getItem(KEYS.SUBMISSIONS);
-    if (local) {
-      const submissions = JSON.parse(local);
-      localStorage.setItem(KEYS.SUBMISSIONS, JSON.stringify(submissions.filter((s: any) => s.id !== id)));
-    }
+    
+    try {
+      const local = localStorage.getItem(KEYS.SUBMISSIONS);
+      if (local) {
+        const submissions = JSON.parse(local);
+        if (Array.isArray(submissions)) {
+          localStorage.setItem(KEYS.SUBMISSIONS, JSON.stringify(submissions.filter((s: any) => s.id !== id)));
+        }
+      }
+    } catch (e) {}
   },
 
   async getAdmins(): Promise<AdminUser[]> {
@@ -380,11 +435,15 @@ export const api = {
     const settings = await this.getEffectiveSettings();
     if (settings.dbConfig?.useRemote) {
       try {
-        await fetch(`${settings.dbConfig.supabaseUrl}/rest/v1/admins?id=eq.${id}`, {
+        const response = await fetch(`${settings.dbConfig.supabaseUrl}/rest/v1/admins?id=eq.${id}`, {
           method: 'DELETE',
-          headers: await this.headers()
+          headers: await this.getHeaders()
         });
-      } catch (e) {}
+        if (!response.ok) throw new Error(`Erro delete admin: ${response.status}`);
+      } catch (e) {
+        console.error('Erro ao deletar admin remotamente:', e);
+        throw e;
+      }
     }
     const local = localStorage.getItem(KEYS.ADMINS);
     if (local) {

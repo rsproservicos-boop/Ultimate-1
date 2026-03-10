@@ -84,7 +84,7 @@ const SummaryStep: React.FC<Props> = ({ formData, onBack }) => {
         </div>
         <div className="space-y-2">
           <h3 className="text-2xl font-bold text-slate-800">Protocolo Registrado!</h3>
-          <p className="text-slate-500 max-w-sm">Seu agendamento foi salvo com sucesso. Aguarde o contato do DPS para confirmação final.</p>
+          <p className="text-slate-500 max-w-sm">Seu agendamento foi salvo com sucesso. Confira através do protocolo o andamento da sua solicitação</p>
         </div>
         
         <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100 w-full max-w-sm shadow-inner relative group">

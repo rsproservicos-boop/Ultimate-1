@@ -50,6 +50,7 @@ const AdminDashboard: React.FC<Props> = ({ onBack }) => {
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'success'>('idle');
   const [notificationMsg, setNotificationMsg] = useState('');
   const [unreadCount, setUnreadCount] = useState(0);
+  const [pendingNotifications, setPendingNotifications] = useState<Submission[]>([]);
   
   const [showAddAdmin, setShowAddAdmin] = useState(false);
   const [newAdmin, setNewAdmin] = useState({ username: '', password: '' });
@@ -117,7 +118,7 @@ const AdminDashboard: React.FC<Props> = ({ onBack }) => {
           const newItems = sortedNew.filter(ns => !submissions.some(os => os.id === ns.id));
           
           if (newItems.length > 0) {
-            setNotificationMsg(`${newItems.length} novo(s) agendamento(s) recebido(s)!`);
+            setPendingNotifications(prev => [...newItems, ...prev]);
             
             // Som de notificação (Mixkit SFX)
             const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
@@ -156,16 +157,17 @@ const AdminDashboard: React.FC<Props> = ({ onBack }) => {
     });
   };
 
-  const handleUpdateStatus = async (id: string, newStatus: 'Aprovado' | 'Recusado', e: React.MouseEvent) => {
-    e.stopPropagation();
+  const handleUpdateStatus = async (id: string, newStatus: 'Aprovado' | 'Recusado', e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
     try {
       setNotificationMsg('Atualizando status...');
       await api.updateSubmissionStatus(id, newStatus);
-      const submission = submissions.find(s => s.id === id);
+      const submission = submissions.find(s => s.id === id) || pendingNotifications.find(s => s.id === id);
       if (submission) {
         await api.sendEmailNotification({ ...submission, status: newStatus });
       }
       setSubmissions(prev => prev.map(s => s.id === id ? { ...s, status: newStatus } : s));
+      setPendingNotifications(prev => prev.filter(s => s.id !== id));
       setNotificationMsg('Status atualizado!');
       setTimeout(() => setNotificationMsg(''), 2000);
     } catch (error) {
@@ -464,6 +466,54 @@ const AdminDashboard: React.FC<Props> = ({ onBack }) => {
 
   return (
     <div className="min-h-screen bg-[#f8fafc] flex flex-col md:flex-row">
+      {/* Sistema de Notificações Interativas */}
+      <div className="fixed top-4 right-4 z-[250] flex flex-col gap-3 w-full max-w-sm pointer-events-none">
+        {pendingNotifications.map((notif) => (
+          <div 
+            key={notif.id} 
+            className="pointer-events-auto bg-white border-2 border-[#D4AF37] rounded-2xl shadow-2xl p-4 animate-in slide-in-from-right-8 duration-300 flex flex-col gap-3"
+          >
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-[#001f3f] rounded-xl flex items-center justify-center text-[#D4AF37] shrink-0">
+                  <Bell size={20} className="animate-bounce" />
+                </div>
+                <div>
+                  <p className="text-[10px] font-black text-[#D4AF37] uppercase tracking-[0.2em]">Novo Agendamento</p>
+                  <p className="text-sm font-black text-[#001f3f] line-clamp-1">{notif.nome}</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setPendingNotifications(prev => prev.filter(p => p.id !== notif.id))}
+                className="p-1 text-slate-400 hover:text-red-500 transition-colors"
+              >
+                <X size={16} />
+              </button>
+            </div>
+            
+            <div className="flex items-center gap-2 text-[10px] font-bold text-slate-500 bg-slate-50 p-2 rounded-lg">
+              <span className="bg-[#001f3f] text-white px-1.5 py-0.5 rounded uppercase">{notif.protocolo}</span>
+              <span>Entrada: {formatDate(notif.dataEntrada)}</span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <button 
+                onClick={() => handleUpdateStatus(notif.id, 'Aprovado')}
+                className="flex items-center justify-center gap-2 bg-emerald-600 text-white py-2 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-600/20"
+              >
+                <Check size={14} /> Aprovar
+              </button>
+              <button 
+                onClick={() => handleUpdateStatus(notif.id, 'Recusado')}
+                className="flex items-center justify-center gap-2 bg-red-600 text-white py-2 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-red-700 transition-all shadow-lg shadow-red-600/20"
+              >
+                <Ban size={14} /> Recusar
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+
       {notificationMsg && (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[200] bg-[#001f3f] text-white px-6 py-3 rounded-full shadow-2xl flex items-center gap-3 animate-in fade-in slide-in-from-top-4 border border-[#D4AF37]">
           <RefreshCw className="animate-spin text-[#D4AF37]" size={16} />
@@ -543,10 +593,18 @@ const AdminDashboard: React.FC<Props> = ({ onBack }) => {
 
       <main className="flex-1 p-4 md:p-10 pb-28 md:pb-10 max-w-7xl mx-auto w-full overflow-x-hidden">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
-           <div>
+           <div className="flex items-center gap-4">
               <h2 className="text-3xl font-black text-[#001f3f] uppercase tracking-tighter">
                 {navigationItems.find(i => i.id === activeTab)?.label}
               </h2>
+              {submissions.some(s => s.status === 'Pendente') && (
+                <div className="flex items-center gap-2 bg-amber-50 border border-amber-100 px-3 py-1.5 rounded-full animate-in fade-in slide-in-from-left-4">
+                  <Bell size={14} className="text-amber-500 animate-bounce" />
+                  <span className="text-[10px] font-black text-amber-700 uppercase tracking-widest">
+                    {submissions.filter(s => s.status === 'Pendente').length} Pendentes
+                  </span>
+                </div>
+              )}
            </div>
            {activeTab !== 'portaria' && (
              <button onClick={fetchData} className="flex items-center gap-2 bg-white border border-slate-200 px-4 py-2.5 rounded-xl text-slate-600 hover:bg-slate-50 shadow-sm text-[10px] font-black uppercase tracking-widest transition-all">
@@ -564,6 +622,52 @@ const AdminDashboard: React.FC<Props> = ({ onBack }) => {
           <div className="animate-in fade-in duration-500">
             {activeTab === 'registros' && (
               <div className="space-y-8">
+                {submissions.some(s => s.status === 'Pendente') && (
+                  <div className="bg-amber-50/50 border-2 border-amber-100 rounded-[2.5rem] p-6 mb-8 animate-in slide-in-from-top-4 duration-500">
+                    <div className="flex items-center gap-3 mb-6">
+                      <div className="w-10 h-10 bg-amber-500 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-amber-500/20">
+                        <Bell size={20} className="animate-bounce" />
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-black text-[#001f3f] uppercase tracking-widest">Ações Pendentes</h3>
+                        <p className="text-[10px] text-amber-600 font-bold uppercase tracking-widest">Agendamentos aguardando sua revisão</p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex flex-wrap gap-4">
+                      {submissions.filter(s => s.status === 'Pendente').slice(0, 3).map(notif => (
+                        <div key={notif.id} className="bg-white p-4 rounded-2xl shadow-sm border border-amber-100 flex items-center gap-4 flex-1 min-w-[300px]">
+                          <div className="flex-1">
+                            <p className="text-xs font-black text-[#001f3f] uppercase line-clamp-1">{notif.nome}</p>
+                            <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">{notif.protocolo} • {formatDate(notif.dataEntrada)}</p>
+                          </div>
+                          <div className="flex gap-2">
+                            <button 
+                              onClick={(e) => handleUpdateStatus(notif.id, 'Aprovado', e)}
+                              className="p-2 bg-emerald-50 text-emerald-600 rounded-xl hover:bg-emerald-600 hover:text-white transition-all shadow-sm"
+                              title="Aprovar"
+                            >
+                              <Check size={16} />
+                            </button>
+                            <button 
+                              onClick={(e) => handleUpdateStatus(notif.id, 'Recusado', e)}
+                              className="p-2 bg-red-50 text-red-600 rounded-xl hover:bg-red-600 hover:text-white transition-all shadow-sm"
+                              title="Recusar"
+                            >
+                              <Ban size={16} />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                      {submissions.filter(s => s.status === 'Pendente').length > 3 && (
+                        <div className="flex items-center justify-center px-4 text-amber-600 text-[10px] font-black uppercase tracking-widest">
+                          + {submissions.filter(s => s.status === 'Pendente').length - 3} outros
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
                   {[
                     { label: 'Total Registros', value: statsSubmissions.total, icon: ClipboardList, color: 'blue' },
@@ -613,9 +717,16 @@ const AdminDashboard: React.FC<Props> = ({ onBack }) => {
                                <tr key={s.id} onClick={() => setSelectedSubmission(s)} className="hover:bg-slate-50 transition-colors cursor-pointer group">
                                   <td className="px-6 py-4 font-mono font-bold text-blue-900 text-sm">{s.protocolo}</td>
                                   <td className="px-6 py-4">
-                                     <div className="flex flex-col">
-                                        <span className="font-bold text-slate-800 text-sm group-hover:text-[#001f3f] transition-colors">{s.nome}</span>
-                                        <span className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">{s.matricula}</span>
+                                     <div className="flex items-center gap-3">
+                                        {s.status === 'Pendente' && (
+                                          <div className="w-8 h-8 bg-amber-50 rounded-lg flex items-center justify-center text-amber-500 animate-pulse shrink-0 border border-amber-100">
+                                            <Bell size={14} />
+                                          </div>
+                                        )}
+                                        <div className="flex flex-col">
+                                           <span className="font-bold text-slate-800 text-sm group-hover:text-[#001f3f] transition-colors">{s.nome}</span>
+                                           <span className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">{s.matricula}</span>
+                                        </div>
                                      </div>
                                   </td>
                                   <td className="px-6 py-4">
@@ -1218,7 +1329,13 @@ const AdminDashboard: React.FC<Props> = ({ onBack }) => {
             <div className="relative w-full max-w-5xl bg-white rounded-[3rem] shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-300">
                <div className="bg-[#001f3f] text-white p-6 md:p-8 flex items-center justify-between border-b-4 border-[#D4AF37]">
                 <div className="flex items-center gap-4">
-                  <div className="w-14 h-14 bg-white/10 rounded-2xl flex items-center justify-center"><FileText className="text-[#D4AF37]" size={28} /></div>
+                  <div className="w-14 h-14 bg-white/10 rounded-2xl flex items-center justify-center">
+                    {selectedSubmission.status === 'Pendente' ? (
+                      <Bell className="text-[#D4AF37] animate-bounce" size={28} />
+                    ) : (
+                      <FileText className="text-[#D4AF37]" size={28} />
+                    )}
+                  </div>
                   <div>
                     <h2 className="text-2xl font-black uppercase tracking-tighter">Detalhes do <span className="text-[#D4AF37]">Pedido</span></h2>
                     <div className="flex items-center gap-2">

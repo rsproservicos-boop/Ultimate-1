@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { CheckCircle2, ChevronLeft, Send, User, Calendar, Mail, RefreshCw, Copy, Check } from 'lucide-react';
+import { CheckCircle2, ChevronLeft, Send, User, Calendar, Mail, RefreshCw, Copy, Check, MessageSquare } from 'lucide-react';
 import { FormData, Submission, NotificationSettings } from '../types';
 import { api } from '../api';
 
@@ -76,6 +76,25 @@ const SummaryStep: React.FC<Props> = ({ formData, onBack }) => {
     }
   };
 
+  const handleWhatsAppShare = () => {
+    const message = `COMPROVANTE DE PRÉ-AGENDAMENTO HACOLHE
+
+Protocolo: ${protocol}
+Titular: ${formData.nome}
+CPF: ${formData.cpf}
+Matrícula: ${formData.matricula}
+
+ESTADIA
+Entrada: ${formData.dataEntrada}
+Saída: ${formData.dataSaida}
+Previsão de Chegada: ${formData.horarioChegada}
+
+Confira através do protocolo o andamento da sua solicitação`;
+
+    const encodedMessage = encodeURIComponent(message);
+    window.open(`https://wa.me/?text=${encodedMessage}`, '_blank');
+  };
+
   if (submitted) {
     return (
       <div className="flex flex-col items-center text-center space-y-6 py-12 animate-in zoom-in-95 duration-500">
@@ -107,7 +126,21 @@ const SummaryStep: React.FC<Props> = ({ formData, onBack }) => {
           </p>
         </div>
 
-        <button onClick={() => window.location.reload()} className="bg-blue-900 text-white px-8 py-4 rounded-xl font-bold hover:bg-blue-950 shadow-lg transition-all active:scale-95">Novo Agendamento</button>
+        <div className="flex flex-col sm:flex-row gap-3 w-full max-w-sm">
+          <button 
+            onClick={handleWhatsAppShare} 
+            className="flex-1 flex items-center justify-center gap-2 bg-emerald-600 text-white px-6 py-4 rounded-xl font-bold hover:bg-emerald-700 shadow-lg transition-all active:scale-95"
+          >
+            <MessageSquare size={20} />
+            Salvar no WhatsApp
+          </button>
+          <button 
+            onClick={() => window.location.reload()} 
+            className="flex-1 bg-blue-900 text-white px-6 py-4 rounded-xl font-bold hover:bg-blue-950 shadow-lg transition-all active:scale-95"
+          >
+            Novo Agendamento
+          </button>
+        </div>
       </div>
     );
   }

@@ -107,3 +107,38 @@ DROP POLICY IF EXISTS "Enable all for anon on movements" ON movements;
 CREATE POLICY "Enable all for anon on submissions" ON submissions FOR ALL TO anon USING (true) WITH CHECK (true);
 CREATE POLICY "Enable all for anon on admins" ON admins FOR ALL TO anon USING (true) WITH CHECK (true);
 CREATE POLICY "Enable all for anon on movements" ON movements FOR ALL TO anon USING (true) WITH CHECK (true);
+
+-- SCRIPT DE CORREÇÃO PARA TABELAS EXISTENTES (Execute no SQL Editor do Supabase se houver erros de coluna ausente)
+-- Adiciona colunas que podem estar faltando em instalações anteriores
+ALTER TABLE submissions ADD COLUMN IF NOT EXISTS "detalheMobilidadePolicial" TEXT;
+ALTER TABLE submissions ADD COLUMN IF NOT EXISTS "temDependente1" TEXT DEFAULT 'Não';
+ALTER TABLE submissions ADD COLUMN IF NOT EXISTS "nomeDependente1" TEXT;
+ALTER TABLE submissions ADD COLUMN IF NOT EXISTS "cpfDependente1" TEXT;
+ALTER TABLE submissions ADD COLUMN IF NOT EXISTS "permanenciaDependente1" TEXT;
+ALTER TABLE submissions ADD COLUMN IF NOT EXISTS "emailDependente1" TEXT;
+ALTER TABLE submissions ADD COLUMN IF NOT EXISTS "dataNascimentoDependente1" TEXT;
+ALTER TABLE submissions ADD COLUMN IF NOT EXISTS "whatsappDependente1" TEXT;
+ALTER TABLE submissions ADD COLUMN IF NOT EXISTS "generoDependente1" TEXT;
+ALTER TABLE submissions ADD COLUMN IF NOT EXISTS "parentescoDependente1" TEXT;
+ALTER TABLE submissions ADD COLUMN IF NOT EXISTS "parentescoOutroExplica1" TEXT;
+ALTER TABLE submissions ADD COLUMN IF NOT EXISTS "necessidadeMobilidadeDependente1" TEXT DEFAULT 'Não';
+ALTER TABLE submissions ADD COLUMN IF NOT EXISTS "detalheMobilidadeDependente1" TEXT;
+ALTER TABLE submissions ADD COLUMN IF NOT EXISTS "pretensaoSalvadorDependente1" TEXT;
+ALTER TABLE submissions ADD COLUMN IF NOT EXISTS "possuiPlanoDependente1" TEXT;
+ALTER TABLE submissions ADD COLUMN IF NOT EXISTS "planoENumeroDependente1" TEXT;
+ALTER TABLE submissions ADD COLUMN IF NOT EXISTS "temOutroDependente" TEXT DEFAULT 'Não';
+ALTER TABLE submissions ADD COLUMN IF NOT EXISTS "nomeDependente2" TEXT;
+ALTER TABLE submissions ADD COLUMN IF NOT EXISTS "cpfDependente2" TEXT;
+ALTER TABLE submissions ADD COLUMN IF NOT EXISTS "emailDependente2" TEXT;
+ALTER TABLE submissions ADD COLUMN IF NOT EXISTS "dataNascimentoDependente2" TEXT;
+ALTER TABLE submissions ADD COLUMN IF NOT EXISTS "generoDependente2" TEXT;
+ALTER TABLE submissions ADD COLUMN IF NOT EXISTS "parentescoDependente2" TEXT;
+ALTER TABLE submissions ADD COLUMN IF NOT EXISTS "parentescoOutroExplica2" TEXT;
+ALTER TABLE submissions ADD COLUMN IF NOT EXISTS "necessidadeMobilidadeDependente2" TEXT DEFAULT 'Não';
+ALTER TABLE submissions ADD COLUMN IF NOT EXISTS "detalheMobilidadeDependente2" TEXT;
+ALTER TABLE submissions ADD COLUMN IF NOT EXISTS "pretensaoSalvadorDependente2" TEXT;
+ALTER TABLE submissions ADD COLUMN IF NOT EXISTS "possuiPlanoDependente2" TEXT;
+ALTER TABLE submissions ADD COLUMN IF NOT EXISTS "planoENumeroDependente2" TEXT;
+ALTER TABLE submissions ADD COLUMN IF NOT EXISTS "nomeTitular" TEXT;
+ALTER TABLE submissions ADD COLUMN IF NOT EXISTS "matriculaTitular" TEXT;
+ALTER TABLE submissions ADD COLUMN IF NOT EXISTS "parentesco" TEXT;
